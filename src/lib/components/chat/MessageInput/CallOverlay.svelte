@@ -339,10 +339,10 @@
 
 				// Start silence detection only after initial speech/noise has been detected
 				if (hasStartedSpeaking) {
-					if (Date.now() - lastSoundTime > 2000) {
+					if (Date.now() - lastSoundTime > 1500) {
 						confirmed = true;
 
-						if (mediaRecorder) {
+						if (mediaRecorder && mediaRecorder.state === 'recording') {
 							console.log('%c%s', 'color: red; font-size: 20px;', '🔇 Silence detected');
 							mediaRecorder.stop();
 							return;

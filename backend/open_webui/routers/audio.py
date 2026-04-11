@@ -29,7 +29,7 @@ from fastapi import (
     APIRouter,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 
@@ -375,15 +375,17 @@ async def speech(request: Request, user=Depends(get_verified_user)):
                     ssl=AIOHTTP_CLIENT_SESSION_SSL,
                 )
 
-                r.raise_for_status()
+                # Stream the response to the client
+                async def stream_generator():
+                    async with aiofiles.open(file_path, 'wb') as f:
+                        async for chunk in r.content.iter_chunked(8192):
+                            await f.write(chunk)
+                            yield chunk
 
-                async with aiofiles.open(file_path, 'wb') as f:
-                    await f.write(await r.read())
+                    async with aiofiles.open(file_body_path, 'w') as f:
+                        await f.write(json.dumps(payload))
 
-                async with aiofiles.open(file_body_path, 'w') as f:
-                    await f.write(json.dumps(payload))
-
-            return FileResponse(file_path)
+                return StreamingResponse(stream_generator(), media_type='audio/mpeg')
 
         except Exception as e:
             log.exception(e)
@@ -435,13 +437,17 @@ async def speech(request: Request, user=Depends(get_verified_user)):
                 ) as r:
                     r.raise_for_status()
 
-                    async with aiofiles.open(file_path, 'wb') as f:
-                        await f.write(await r.read())
+                    # Stream the response to the client
+                    async def stream_generator():
+                        async with aiofiles.open(file_path, 'wb') as f:
+                            async for chunk in r.content.iter_chunked(8192):
+                                await f.write(chunk)
+                                yield chunk
 
-                    async with aiofiles.open(file_body_path, 'w') as f:
-                        await f.write(json.dumps(payload))
+                        async with aiofiles.open(file_body_path, 'w') as f:
+                            await f.write(json.dumps(payload))
 
-            return FileResponse(file_path)
+                    return StreamingResponse(stream_generator(), media_type='audio/mpeg')
 
         except Exception as e:
             log.exception(e)
@@ -571,7 +577,7 @@ def transcription_handler(request, file_path, metadata, user=None):
         model = request.app.state.faster_whisper_model
         segments, info = model.transcribe(
             file_path,
-            beam_size=5,
+            beam_size=1,
             vad_filter=WHISPER_VAD_FILTER,
             language=languages[0],
             multilingual=WHISPER_MULTILINGUAL,
