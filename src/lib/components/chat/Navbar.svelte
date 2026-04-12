@@ -249,6 +249,9 @@
 										class="size-6 object-cover rounded-full"
 										alt=""
 										draggable="false"
+										on:error={(e) => {
+											e.currentTarget.src = '/favicon.png';
+										}}
 									/>
 								</div>
 							</div>

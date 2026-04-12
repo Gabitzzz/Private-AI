@@ -92,6 +92,9 @@
 							src={`${WEBUI_API_BASE_URL}/users/${$user?.id}/profile/image`}
 							class=" size-10 object-cover rounded-full"
 							alt="profile"
+							on:error={(e) => {
+								e.currentTarget.src = '/favicon.png';
+							}}
 						/>
 					</div>
 

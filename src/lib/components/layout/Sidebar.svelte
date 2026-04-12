@@ -713,9 +713,12 @@
 					>
 						<div class=" self-center flex items-center justify-center size-9">
 							<img
-								src="{WEBUI_BASE_URL}/static/favicon.png"
+								src="/favicon.png"
 								class="sidebar-new-chat-icon size-6 rounded-full group-hover:hidden"
 								alt=""
+								on:error={(e) => {
+									e.currentTarget.src = '/favicon.png';
+								}}
 							/>
 
 							<Sidebar className="size-5 hidden group-hover:flex" />
@@ -948,9 +951,12 @@
 				>
 					<img
 						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/favicon.png"
+						src="/favicon.png"
 						class="sidebar-new-chat-icon size-6 rounded-full"
 						alt=""
+						on:error={(e) => {
+							e.currentTarget.src = '/favicon.png';
+						}}
 					/>
 				</a>
 
