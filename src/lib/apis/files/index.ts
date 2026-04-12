@@ -222,7 +222,8 @@ export const getFileById = async (token: string, id: string) => {
 			Accept: 'application/json',
 			'Content-Type': 'application/json',
 			authorization: `Bearer ${token}`
-		}
+		},
+		cache: 'no-store'
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
@@ -281,12 +282,13 @@ export const updateFileDataContentById = async (token: string, id: string, conte
 export const getFileContentById = async (id: string) => {
 	let error = null;
 
-	const res = await fetch(`${WEBUI_API_BASE_URL}/files/${id}/content`, {
+	const res = await fetch(`${WEBUI_API_BASE_URL}/files/${id}/content?t=${Date.now()}`, {
 		method: 'GET',
 		headers: {
 			Accept: 'application/json'
 		},
-		credentials: 'include'
+		credentials: 'include',
+		cache: 'no-store'
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
