@@ -2921,6 +2921,7 @@ DEFAULT_RAG_TEMPLATE = """### Task:
 Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
 
 ### Guidelines:
+- The contents of the documents or files relevant to the user's request are provided below inside the <context> block. **You DO have access to the documents.** Read the <context> carefully.
 - If you don't know the answer, clearly state that.
 - If uncertain, ask the user for clarification.
 - Respond in the same language as the user's query.
@@ -2930,7 +2931,7 @@ Respond to the user query using the provided context, incorporating inline citat
 - Do not cite if the <source> tag does not contain an id attribute.
 - Do not use XML tags in your response.
 - Ensure citations are concise and directly related to the information provided.
-- If the current context is insufficient or if you are specifically asked to analyze a document, you should use your available tools (such as `list_files` to discover documents, and `analyze_document` or `view_file` to fetch content) to help the user.
+- If the information in the <context> is insufficient, ONLY THEN may you ask the user to provide more details or use your available tools (such as `list_files` or `analyze_document`) to fetch more content.
 
 ### Example of Citation:
 If the user asks about a specific topic and the information is found in a source with a provided id attribute, the response should include the citation like in the following example:

@@ -2,6 +2,7 @@
 	import { Handle, Position } from '@xyflow/svelte';
 	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import { deleteFileById } from '$lib/apis/files';
 	
 	import Document from '$lib/components/icons/Document.svelte';
@@ -11,6 +12,8 @@
 	import Trash from '$lib/components/icons/GarbageBin.svelte';
 	import Download from '$lib/components/icons/ArrowDownTray.svelte';
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
+	import Eye from '$lib/components/icons/Eye.svelte';
+	import FileItemModal from '$lib/components/common/FileItemModal.svelte';
 	import { goto } from '$app/navigation';
 
 	const i18n = getContext('i18n');
@@ -46,8 +49,31 @@
 		}
 	};
 
-	const handleDownload = () => {
-		window.open(`/api/v1/files/${file.id}/content?attachment=true`, '_blank');
+	let showPreviewModal = false;
+	const handlePreview = () => {
+		showPreviewModal = true;
+	};
+
+	const handleDownload = async () => {
+		try {
+			const res = await fetch(`${WEBUI_API_BASE_URL}/files/${file.id}/content?attachment=true`, {
+				headers: {
+					Authorization: `Bearer ${localStorage.token}`
+				}
+			});
+			if (!res.ok) throw new Error('Download failed');
+			const blob = await res.blob();
+			const url = window.URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = file.filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(url);
+		} catch (error) {
+			toast.error($i18n.t('Failed to download file'));
+		}
 	};
 
 	const handleAnalyze = async () => {
@@ -89,6 +115,13 @@
 
 		<div class="flex space-x-1 opacity-10 group-hover:opacity-100 transition-opacity">
 			<button
+				on:click|stopPropagation={handlePreview}
+				class="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-gray-500 hover:text-emerald-600 transition-colors rounded-md"
+				title={$i18n.t('Preview / View')}
+			>
+				<Eye className="size-4" />
+			</button>
+			<button
 				on:click|stopPropagation={handleAnalyze}
 				class="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-500 hover:text-blue-600 transition-colors rounded-md"
 				title={$i18n.t('Analyze')}
@@ -123,6 +156,19 @@
 
 	<Handle type="source" position={Position.Bottom} className="opacity-0" />
 </div>
+
+<FileItemModal
+	bind:show={showPreviewModal}
+	item={{
+		type: 'file',
+		id: file.id,
+		url: `${file.id}`,
+		name: file.filename,
+		collection_name: file.meta?.collection_name || file.collection_name,
+		status: 'uploaded',
+		size: file.meta?.size || 0
+	}}
+/>
 
 <style>
 	:global(.svelte-flow__node-file) {
