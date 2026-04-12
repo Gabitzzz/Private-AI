@@ -87,6 +87,8 @@ from open_webui.tools.builtin import (
     analyze_document,
     list_files,
     view_skill,
+    update_file_content,
+    update_excel_data,
 )
 
 import copy
@@ -422,6 +424,8 @@ def get_builtin_tools(
                 builtin_functions.append(view_file)
                 builtin_functions.append(analyze_document)
                 builtin_functions.append(view_knowledge_file)
+                builtin_functions.append(update_file_content)
+                builtin_functions.append(update_excel_data)
             if 'note' in knowledge_types:
                 builtin_functions.append(view_note)
         else:
@@ -434,6 +438,8 @@ def get_builtin_tools(
                     search_knowledge_files,
                     query_knowledge_files,
                     view_knowledge_file,
+                    update_file_content,
+                    update_excel_data,
                 ]
             )
 

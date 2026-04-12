@@ -8,7 +8,8 @@
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import { settings } from '$lib/stores';
 	import { getKnowledgeById } from '$lib/apis/knowledge';
-	import { getFileById, getFileContentById } from '$lib/apis/files';
+	import { getFileById, getFileContentById, updateFileDataContentById, updateExcelDataById } from '$lib/apis/files';
+	import { toast } from 'svelte-sonner';
 
 	import CodeBlock from '$lib/components/chat/Messages/CodeBlock.svelte';
 	import Markdown from '$lib/components/chat/Messages/Markdown.svelte';
@@ -35,6 +36,8 @@
 
 	let enableFullContent = false;
 	let loading = false;
+	let editing = false;
+	let editedContent = '';
 
 	let isPDF = false;
 	let isAudio = false;
@@ -50,6 +53,8 @@
 	let excelHtml = '';
 	let excelError = '';
 	let rowCount = 0;
+	let colCount = 0;
+	let excelData: any[][] = [];
 
 	// DOCX state
 	let docxHtml = '';
@@ -171,11 +176,16 @@
 
 	const renderExcelSheet = async () => {
 		if (!excelWorkbook || !selectedSheet) return;
-		const { excelToTable } = await import('$lib/utils/excelToTable');
+		const XLSX = await import('xlsx');
 		const worksheet = excelWorkbook.Sheets[selectedSheet];
+
+		excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+		const { excelToTable } = await import('$lib/utils/excelToTable');
 		const result = await excelToTable(worksheet);
 		excelHtml = result.html;
 		rowCount = result.rowCount;
+		colCount = result.colCount;
 	};
 
 	$: if (selectedSheet && excelWorkbook) {
@@ -257,10 +267,58 @@
 		await tick();
 	};
 
+	const saveContent = async () => {
+		loading = true;
+		try {
+			const res = await updateFileDataContentById(localStorage.token, item.id, editedContent);
+			if (res) {
+				if (item.file && item.file.data) {
+					item.file.data.content = editedContent;
+				} else if (item.content) {
+					item.content = editedContent;
+				}
+				editing = false;
+				toast.success($i18n.t('Content updated successfully'));
+			}
+		} catch (error) {
+			toast.error(error);
+		}
+		loading = false;
+	};
+
 	$: if (show) {
 		loadContent();
 	}
 
+	const saveExcelContent = async () => {
+		loading = true;
+		try {
+			const res = await updateExcelDataById(
+				localStorage.token,
+				item.id,
+				selectedSheet,
+				excelData
+			);
+			if (res) {
+				toast.success($i18n.t('Excel data updated successfully'));
+				editing = false;
+				await loadContent();
+			}
+		} catch (error) {
+			toast.error(error);
+		}
+		loading = false;
+	};
+
+	const colLetter = (i: number): string => {
+		let s = '';
+		let n = i;
+		while (n >= 0) {
+			s = String.fromCharCode(65 + (n % 26)) + s;
+			n = Math.floor(n / 26) - 1;
+		}
+		return s;
+	};
 	onMount(() => {
 		console.log(item);
 		if (item?.context === 'full') {
@@ -430,6 +488,52 @@
 								selectedTab = 'preview';
 							}}>{$i18n.t('Preview')}</button
 						>
+
+						{#if ((item?.file?.data?.content || item?.content || isCode || isMarkdown) && selectedTab === '') || (isExcel && selectedTab === 'preview')}
+							<div class="flex-1 flex justify-end items-center pr-4">
+								{#if editing}
+									<div class="flex gap-2">
+										<button
+											class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition disabled:opacity-50"
+											on:click={isExcel ? saveExcelContent : saveContent}
+											disabled={loading}
+										>
+											{$i18n.t('Save')}
+										</button>
+										<button
+											class="text-xs font-semibold text-gray-400 hover:text-gray-500 transition"
+											on:click={() => {
+												editing = false;
+											}}
+										>
+											{$i18n.t('Cancel')}
+										</button>
+									</div>
+								{:else if !loading}
+									<button
+										class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
+										on:click={() => {
+											if (selectedTab === '') {
+												editedContent = item?.file?.data?.content || item?.content || '';
+											}
+											editing = true;
+										}}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											class="size-3"
+										>
+											<path
+												d="m2.695 14.762-1.262 3.155a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.886L17.5 5.501a2.121 2.121 0 0 0-3-3L3.58 13.419a4 4 0 0 0-.885 1.343Z"
+											/>
+										</svg>
+										{$i18n.t('Edit')}
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				{/if}
 
@@ -466,10 +570,17 @@
 							<div
 								class="max-h-96 overflow-scroll scrollbar-hidden text-sm prose dark:prose-invert max-w-full"
 							>
-								<Markdown
-									content={isTruncated ? rawContent.slice(0, CONTENT_PREVIEW_LIMIT) : rawContent}
-									id="file-preview"
-								/>
+								{#if editing}
+									<textarea
+										bind:value={editedContent}
+										class="w-full min-h-64 p-4 bg-gray-50 dark:bg-gray-850 rounded-lg outline-none text-sm font-mono border border-transparent focus:border-blue-500 transition"
+									></textarea>
+								{:else}
+									<Markdown
+										content={isTruncated ? rawContent.slice(0, CONTENT_PREVIEW_LIMIT) : rawContent}
+										id="file-preview"
+									/>
+								{/if}
 							</div>
 							{#if isTruncated}
 								<button
@@ -498,10 +609,17 @@
 							<div
 								class="max-h-96 overflow-scroll scrollbar-hidden text-sm prose dark:prose-invert max-w-full"
 							>
-								<Markdown
-									content={isTruncated ? rawContent.slice(0, CONTENT_PREVIEW_LIMIT) : rawContent}
-									id="file-preview-content"
-								/>
+								{#if editing}
+									<textarea
+										bind:value={editedContent}
+										class="w-full min-h-64 p-4 bg-gray-50 dark:bg-gray-850 rounded-lg outline-none text-sm font-mono border border-transparent focus:border-blue-500 transition"
+									></textarea>
+								{:else}
+									<Markdown
+										content={isTruncated ? rawContent.slice(0, CONTENT_PREVIEW_LIMIT) : rawContent}
+										id="file-preview-content"
+									/>
+								{/if}
 							</div>
 							{#if isTruncated}
 								<button
@@ -559,8 +677,48 @@
 							{/if}
 
 							{#if excelHtml}
-								<div class="office-preview overflow-auto max-h-[60vh]">
-									{@html excelHtml}
+								<div class="office-preview overflow-auto max-h-[60vh] excel-table-container">
+									{#if editing}
+										<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+											<table class="w-full border-collapse text-xs">
+												<thead>
+													<tr class="bg-gray-50 dark:bg-gray-850">
+														<th class="border border-gray-200 dark:border-gray-800 p-1 w-10 text-center"></th>
+														{#each Array(colCount) as _, c}
+															<th class="border border-gray-200 dark:border-gray-800 p-1 text-center font-bold text-gray-500 min-w-[80px]">
+																{colLetter(c)}
+															</th>
+														{/each}
+													</tr>
+												</thead>
+												<tbody>
+													{#each excelData as row, r}
+														<tr>
+															<td class="border border-gray-200 dark:border-gray-800 p-1 text-center bg-gray-50 dark:bg-gray-850 text-gray-400 font-medium">
+																{r + 1}
+															</td>
+															{#each Array(colCount) as _, c}
+																<td 
+																	class="border border-gray-200 dark:border-gray-800 p-0 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 focus-within:ring-2 focus-within:ring-blue-500/50 z-10"
+																>
+																	<input 
+																		type="text"
+																		class="w-full h-full p-2 bg-transparent outline-none border-none"
+																		value={excelData[r][c] || ''}
+																		on:input={(e) => {
+																			excelData[r][c] = e.target.value;
+																		}}
+																	/>
+																</td>
+															{/each}
+														</tr>
+													{/each}
+												</tbody>
+											</table>
+										</div>
+									{:else}
+										{@html excelHtml}
+									{/if}
 								</div>
 							{:else}
 								<div class="text-gray-500 text-sm p-4">No content available</div>
@@ -670,50 +828,46 @@
 </Modal>
 
 <style>
-	:global(.excel-table-container table) {
-		width: 100%;
+	.excel-table-container :global(table) {
 		border-collapse: collapse;
-		font-size: 0.875rem;
-		line-height: 1.25rem;
+		width: 100%;
+		font-size: 0.75rem;
 	}
 
-	:global(.excel-table-container table td),
-	:global(.excel-table-container table th) {
-		border-width: 1px;
-		border-style: solid;
-		border-color: var(--color-gray-300, #cdcdcd);
-		padding: 0.5rem 0.75rem;
-		text-align: left;
+	.excel-table-container :global(th),
+	.excel-table-container :global(td) {
+		border: 1px solid #e5e7eb;
+		padding: 0.5rem;
 	}
 
-	:global(.dark .excel-table-container table td),
-	:global(.dark .excel-table-container table th) {
-		border-color: var(--color-gray-600, #676767);
+	:global(.dark) .excel-table-container :global(th),
+	:global(.dark) .excel-table-container :global(td) {
+		border-color: #374151;
 	}
 
-	:global(.excel-table-container table th) {
-		background-color: var(--color-gray-100, #ececec);
-		font-weight: 600;
+	.excel-table-container :global(.excel-row-num),
+	.excel-table-container :global(.excel-col-hdr) {
+		background-color: #f9fafb;
+		color: #9ca3af;
+		font-weight: 500;
+		text-align: center;
+		padding: 0.25rem;
 	}
 
-	:global(.dark .excel-table-container table th) {
-		background-color: var(--color-gray-800, #333);
-		color: var(--color-gray-100, #ececec);
+	:global(.dark) .excel-table-container :global(.excel-row-num),
+	:global(.dark) .excel-table-container :global(.excel-col-hdr) {
+		background-color: #1f2937;
 	}
 
-	:global(.excel-table-container table tr:nth-child(even)) {
-		background-color: var(--color-gray-50, #f9f9f9);
-	}
-
-	:global(.dark .excel-table-container table tr:nth-child(even)) {
-		background-color: rgba(38, 38, 38, 0.5);
+	.excel-table-container :global(.excel-num) {
+		text-align: right;
 	}
 
 	:global(.excel-table-container table tr:hover) {
-		background-color: var(--color-gray-100, #ececec);
+		background-color: rgba(59, 130, 246, 0.05);
 	}
 
 	:global(.dark .excel-table-container table tr:hover) {
-		background-color: rgba(51, 51, 51, 0.5);
+		background-color: rgba(59, 130, 246, 0.1);
 	}
 </style>

@@ -39,6 +39,10 @@ from open_webui.models.groups import Groups
 from open_webui.models.memories import Memories
 from open_webui.retrieval.vector.factory import VECTOR_DB_CLIENT
 from open_webui.utils.sanitize import sanitize_code
+from open_webui.models.files import Files
+from open_webui.internal.db import get_session
+from open_webui.routers.retrieval import ProcessFileForm, process_file
+from open_webui.storage.provider import Storage
 
 log = logging.getLogger(__name__)
 
@@ -1673,6 +1677,118 @@ async def search_knowledge_files(
 # Hard cap for view_file / view_knowledge_file output
 MAX_VIEW_FILE_CHARS = 100_000
 DEFAULT_VIEW_FILE_MAX_CHARS = 10_000
+
+
+async def update_file_content(
+    file_id: str,
+    content: str,
+    __request__: Request = None,
+    __user__: dict = None,
+) -> str:
+    """
+    Update the text content of a file. Use this to edit documents, scripts, or notes.
+    The changes are saved to disk and re-indexed for AI analysis.
+
+    :param file_id: The ID of the file to update
+    :param content: The NEW full content of the file
+    :return: JSON with status and confirmation message
+    """
+    if __request__ is None:
+        return json.dumps({'error': 'Request context not available'})
+
+    try:
+        from open_webui.utils.access_control.files import has_access_to_file
+
+        user = UserModel(**__user__) if __user__ else None
+        db = next(get_session())
+
+        file = Files.get_file_by_id(file_id)
+        if not file:
+            return json.dumps({'error': 'File not found'})
+
+        if file.user_id == user.id or user.role == 'admin' or has_access_to_file(file_id, 'write', user, db=db):
+            file_path = Storage.get_file(file.path)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            # Re-process for RAG
+            process_file(
+                __request__,
+                ProcessFileForm(file_id=file_id),
+                user=user,
+                db=db,
+            )
+            return json.dumps({'status': 'success', 'message': f'File {file.filename} updated successfully'})
+        else:
+            return json.dumps({'error': 'Access denied'})
+    except Exception as e:
+        log.exception(f'update_file_content error: {e}')
+        return json.dumps({'error': str(e)})
+
+
+async def update_excel_data(
+    file_id: str,
+    sheet_name: str,
+    data: list[list],
+    __request__: Request = None,
+    __user__: dict = None,
+) -> str:
+    """
+    Update the tabular data of an Excel or CSV file.
+    Use this to edit spreadsheets column-by-column or row-by-row.
+    A complete 2D array representing the new sheet content must be provided.
+
+    :param file_id: The ID of the file to update
+    :param sheet_name: The name of the sheet to update (for Excel) or arbitrary for CSV
+    :param data: 2D array of data (rows and columns)
+    :return: JSON with status and confirmation message
+    """
+    if __request__ is None:
+        return json.dumps({'error': 'Request context not available'})
+
+    try:
+        from open_webui.utils.access_control.files import has_access_to_file
+        import pandas as pd
+
+        user = UserModel(**__user__) if __user__ else None
+        db = next(get_session())
+
+        file = Files.get_file_by_id(file_id)
+        if not file:
+            return json.dumps({'error': 'File not found'})
+
+        if file.user_id == user.id or user.role == 'admin' or has_access_to_file(file_id, 'write', user, db=db):
+            file_path = Storage.get_file(file.path)
+            file_ext = file.filename.split('.')[-1].lower()
+
+            if file_ext in ['xls', 'xlsx']:
+                try:
+                    from openpyxl import load_workbook
+                    with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+                        df = pd.DataFrame(data)
+                        df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                except Exception:
+                    df = pd.DataFrame(data)
+                    df.to_excel(file_path, sheet_name=sheet_name, index=False, header=False)
+            elif file_ext == 'csv':
+                df = pd.DataFrame(data)
+                df.to_csv(file_path, index=False, header=False)
+            else:
+                return json.dumps({'error': f'Unsupported file type: {file_ext}'})
+
+            # Re-process for RAG
+            process_file(
+                __request__,
+                ProcessFileForm(file_id=file_id),
+                user=user,
+                db=db,
+            )
+            return json.dumps({'status': 'success', 'message': f'Spreadsheet {file.filename} updated successfully'})
+        else:
+            return json.dumps({'error': 'Access denied'})
+    except Exception as e:
+        log.exception(f'update_excel_data error: {e}')
+        return json.dumps({'error': str(e)})
 
 
 async def analyze_document(

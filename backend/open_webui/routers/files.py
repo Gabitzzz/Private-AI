@@ -541,6 +541,13 @@ def update_file_data_content_by_id(
 
     if file.user_id == user.id or user.role == 'admin' or has_access_to_file(id, 'write', user, db=db):
         try:
+            # Update the file on disk if it's a text file
+            if file.path:
+                file_path = Storage.get_file(file.path)
+                if _is_text_file(file.path):
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(form_data.content)
+
             process_file(
                 request,
                 ProcessFileForm(file_id=id, content=form_data.content),
@@ -571,6 +578,80 @@ def update_file_data_content_by_id(
                 log.warning(f'Failed to update knowledge {knowledge.id} after content change for file {id}: {e}')
 
         return {'content': file.data.get('content', '')}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+
+############################
+# Update Excel Data By Id
+############################
+
+
+class ExcelUpdateForm(BaseModel):
+    sheet_name: str
+    data: list[list]
+
+
+@router.post("/{id}/data/excel/update")
+def update_excel_data_by_id(
+    request: Request,
+    id: str,
+    form_data: ExcelUpdateForm,
+    user=Depends(get_verified_user),
+    db: Session = Depends(get_session),
+):
+    file = Files.get_file_by_id(id, db=db)
+
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+    if file.user_id == user.id or user.role == "admin" or has_access_to_file(id, "write", user, db=db):
+        try:
+            import pandas as pd
+
+            file_path = Storage.get_file(file.path)
+            file_ext = file.filename.split(".")[-1].lower()
+
+            if file_ext in ["xls", "xlsx"]:
+                # Load existing workbook to preserve other sheets if possible
+                try:
+                    # We use openpyxl engine
+                    from openpyxl import load_workbook
+                    with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                        df = pd.DataFrame(form_data.data)
+                        df.to_excel(writer, sheet_name=form_data.sheet_name, index=False, header=False)
+                except Exception:
+                    # If it's a new file or doesn't support append, just write a new one
+                    df = pd.DataFrame(form_data.data)
+                    df.to_excel(file_path, sheet_name=form_data.sheet_name, index=False, header=False)
+            elif file_ext == "csv":
+                df = pd.DataFrame(form_data.data)
+                df.to_csv(file_path, index=False, header=False)
+            else:
+                raise Exception(f"Unsupported file type: {file_ext}")
+
+            # Re-process the file to update RAG content
+            process_file(
+                request,
+                ProcessFileForm(file_id=id),
+                user=user,
+                db=db,
+            )
+            file = Files.get_file_by_id(id=id, db=db)
+            return {"status": True, "content": file.data.get("content", "")}
+        except Exception as e:
+            log.exception(e)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_MESSAGES.DEFAULT(str(e)),
+            )
+
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
