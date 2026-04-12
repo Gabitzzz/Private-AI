@@ -59,7 +59,8 @@
 			name: file.filename,
 			collection_name: file.meta?.collection_name || file.collection_name,
 			status: 'uploaded',
-			size: file.meta?.size || 0
+			size: file.meta?.size || 0,
+			context: 'full'
 		};
 
 		sessionStorage.setItem(

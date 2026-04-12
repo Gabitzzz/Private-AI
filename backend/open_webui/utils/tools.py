@@ -85,6 +85,7 @@ from open_webui.tools.builtin import (
     view_file,
     view_knowledge_file,
     analyze_document,
+    list_files,
     view_skill,
 )
 
@@ -438,7 +439,7 @@ def get_builtin_tools(
 
     # Chats tools - search and fetch user's chat history
     if is_builtin_tool_enabled('chats'):
-        builtin_functions.extend([search_chats, view_chat])
+        builtin_functions.extend([search_chats, view_chat, list_files])
 
     # Add memory tools if builtin category enabled AND enabled for this chat
     if is_builtin_tool_enabled('memory') and (features.get('memory') or get_model_capability('memory', False)):

@@ -2427,10 +2427,28 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     # if prompt and len(prompt or "") < 500 and (not files or len(files) == 0):
     #     urls = extract_urls(prompt)
 
-    if files:
+    # ----- Folder Whiteboard RAG Injection -----
+    # If the user hasn't explicitly attached any files to this chat, automatically
+    # inject all files they have uploaded in the Folder Whiteboard so the existing
+    # RAG pipeline can surface relevant context without any extra user action.
+    # We only do this when no files have been manually attached, to avoid duplicates
+    # and to respect explicit user choices.
+    if not files:
+        try:
+            from open_webui.models.files import Files as FilesModel
+            whiteboard_files = FilesModel.get_files_by_user_id(user.id)
+            if whiteboard_files:
+                files = [
+                    {'id': f.id, 'name': f.filename, 'type': 'file'}
+                    for f in whiteboard_files
+                ]
+        except Exception as _wf_err:
+            log.error(f'Whiteboard file injection error: {_wf_err}')
+
         if not files:
             files = []
 
+    if files:
         for file_item in files:
             if file_item.get('type', 'file') == 'folder':
                 # Get folder files
@@ -2441,7 +2459,6 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                         files = [f for f in files if f.get('id', None) != folder_id]
                         files = [*files, *folder.data['files']]
 
-        # files = [*files, *[{"type": "url", "url": url, "name": url} for url in urls]]
         # Remove duplicate files based on their content
         files = list({json.dumps(f, sort_keys=True): f for f in files}.values())
 
@@ -2656,6 +2673,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         builtin_tools_enabled = (model.get('info', {}).get('meta', {}).get('capabilities') or {}).get(
             'builtin_tools', True
         )
+
         if metadata.get('params', {}).get('function_calling') == 'native' and builtin_tools_enabled:
             # Add file context to user messages
             chat_id = metadata.get('chat_id')

@@ -2930,7 +2930,7 @@ Respond to the user query using the provided context, incorporating inline citat
 - Do not cite if the <source> tag does not contain an id attribute.
 - Do not use XML tags in your response.
 - Ensure citations are concise and directly related to the information provided.
-- If the current context is insufficient or if you are specifically asked to analyze a document, you should use your available tools (such as `analyze_document` or `view_file`) to fetch more content from the files attached to this chat.
+- If the current context is insufficient or if you are specifically asked to analyze a document, you should use your available tools (such as `list_files` to discover documents, and `analyze_document` or `view_file` to fetch content) to help the user.
 
 ### Example of Citation:
 If the user asks about a specific topic and the information is found in a source with a provided id attribute, the response should include the citation like in the following example:

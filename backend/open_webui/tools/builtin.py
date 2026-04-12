@@ -1703,6 +1703,42 @@ async def analyze_document(
     )
 
 
+async def list_files(
+    query: str = None, count: int = 20, skip: int = 0, **kwargs
+) -> str:
+    """
+    List documents and files available in the workspace/folder section. 
+    Use this to discover which files are available for analysis.
+    :param query: Optional string to filter files by name.
+    :param count: The number of files to return (default is 20).
+    :param skip: The number of files to skip (default is 0).
+    """
+    from open_webui.models.files import Files
+
+    __user__ = kwargs.get('__user__', {})
+    user_id = __user__.get('id')
+    user_role = __user__.get('role', 'user')
+
+    files = Files.search_files(
+        user_id=user_id if user_role != 'admin' else None,
+        filename=query if query else '*',
+        skip=skip,
+        limit=count,
+    )
+
+    result = [
+        {
+            'id': f.id,
+            'filename': f.filename,
+            'size': f.meta.get('size') if f.meta else 0,
+            'created_at': f.created_at,
+        }
+        for f in files
+    ]
+
+    return json.dumps(result, ensure_ascii=False)
+
+
 async def view_file(
     file_id: str,
     offset: int = 0,
