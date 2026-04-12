@@ -827,6 +827,46 @@
 						</Tooltip>
 					</div>
 				{/if}
+
+				<div class="">
+					<Tooltip content={$i18n.t('Folder')} placement="right">
+						<a
+							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/folder"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/folder');
+								itemClickHandler();
+							}}
+							aria-label={$i18n.t('Folder')}
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="size-4.5"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-19.5 0A2.25 2.25 0 0 0 0 15v4.5A2.25 2.25 0 0 0 2.25 21.75h19.5A2.25 2.25 0 0 0 24 19.5V15a2.25 2.25 0 0 0-2.25-2.25m-19.5 0h19.5"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M3.75 9.75V4.5a2.25 2.25 0 0 1 2.25-2.25h12a2.25 2.25 0 0 1 2.25 2.25v5.25"
+									/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
 			</div>
 		</button>
 
@@ -1055,6 +1095,43 @@
 							</a>
 						</div>
 					{/if}
+
+					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
+						<a
+							id="sidebar-folder-button"
+							class="grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+							href="/folder"
+							on:click={itemClickHandler}
+							draggable="false"
+							aria-label={$i18n.t('Folder')}
+						>
+							<div class="self-center">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2"
+									stroke="currentColor"
+									class="size-4.5"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-19.5 0A2.25 2.25 0 0 0 0 15v4.5A2.25 2.25 0 0 0 2.25 21.75h19.5A2.25 2.25 0 0 0 24 19.5V15a2.25 2.25 0 0 0-2.25-2.25m-19.5 0h19.5"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M3.75 9.75V4.5a2.25 2.25 0 0 1 2.25-2.25h12a2.25 2.25 0 0 1 2.25 2.25v5.25"
+									/>
+								</svg>
+							</div>
+
+							<div class="flex self-center translate-y-[0.5px]">
+								<div class=" self-center text-sm font-primary">{$i18n.t('Folder')}</div>
+							</div>
+						</a>
+					</div>
 				</div>
 
 				{#if ($models ?? []).length > 0 && (($settings?.pinnedModels ?? []).length > 0 || $config?.default_pinned_models)}

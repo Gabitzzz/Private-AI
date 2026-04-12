@@ -31,6 +31,7 @@ from open_webui.models.channels import Channels
 from open_webui.models.users import Users
 from open_webui.models.files import (
     FileForm,
+    FileUpdateForm,
     FileListResponse,
     FileModel,
     FileModelResponse,
@@ -735,6 +736,42 @@ async def get_file_content_by_id(id: str, user=Depends(get_verified_user), db: S
                 generator(),
                 media_type='text/plain',
                 headers=headers,
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+
+############################
+# Update File By Id
+############################
+
+
+@router.post('/{id}/update', response_model=FileModelResponse)
+def update_file_by_id(
+    id: str,
+    form_data: FileUpdateForm,
+    user=Depends(get_verified_user),
+    db: Session = Depends(get_session),
+):
+    file = Files.get_file_by_id(id, db=db)
+
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+    if file.user_id == user.id or user.role == 'admin' or has_access_to_file(id, 'write', user, db=db):
+        file = Files.update_file_by_id(id, form_data, db=db)
+        if file:
+            return file
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_MESSAGES.DEFAULT('Error updating file'),
             )
     else:
         raise HTTPException(
