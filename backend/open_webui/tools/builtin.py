@@ -1675,6 +1675,34 @@ MAX_VIEW_FILE_CHARS = 100_000
 DEFAULT_VIEW_FILE_MAX_CHARS = 10_000
 
 
+async def analyze_document(
+    file_id: str,
+    offset: int = 0,
+    max_chars: int = DEFAULT_VIEW_FILE_MAX_CHARS,
+    __request__: Request = None,
+    __user__: dict = None,
+    __model_knowledge__: Optional[list[dict]] = None,
+) -> str:
+    """
+    Detailed document analysis tool. Use this to extract specific information, 
+    perform calculations on line items, or summarize long documents by reading 
+    their full content. 
+
+    :param file_id: The ID of the document/file to analyze
+    :param offset: Character offset to start reading from (default: 0)
+    :param max_chars: Maximum characters to return (default: 10000)
+    :return: JSON with the document's full text content and metadata
+    """
+    return await view_file(
+        file_id=file_id,
+        offset=offset,
+        max_chars=max_chars,
+        __request__=__request__,
+        __user__=__user__,
+        __model_knowledge__=__model_knowledge__,
+    )
+
+
 async def view_file(
     file_id: str,
     offset: int = 0,

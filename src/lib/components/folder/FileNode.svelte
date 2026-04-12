@@ -10,6 +10,8 @@
 	import CommandLine from '$lib/components/icons/CommandLine.svelte';
 	import Trash from '$lib/components/icons/GarbageBin.svelte';
 	import Download from '$lib/components/icons/ArrowDownTray.svelte';
+	import Sparkles from '$lib/components/icons/Sparkles.svelte';
+	import { goto } from '$app/navigation';
 
 	const i18n = getContext('i18n');
 
@@ -48,26 +50,58 @@
 		window.open(`/api/v1/files/${file.id}/content?attachment=true`, '_blank');
 	};
 
+	const handleAnalyze = async () => {
+		const fileItem = {
+			type: 'file',
+			file: file,
+			id: file.id,
+			url: `${file.id}`,
+			name: file.filename,
+			collection_name: file.meta?.collection_name || file.collection_name,
+			status: 'uploaded',
+			size: file.meta?.size || 0
+		};
+
+		sessionStorage.setItem(
+			'chat-input',
+			JSON.stringify({
+				prompt: $i18n.t('Analyze this document for me.'),
+				files: [fileItem]
+			})
+		);
+
+		await goto('/');
+	};
+
 	$: Icon = getFileIcon(file.filename);
 </script>
 
-<div class="group relative flex flex-col w-48 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all p-3 select-none">
+<div
+	class="group relative flex flex-col w-48 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all p-3 select-none"
+>
 	<Handle type="target" position={Position.Top} className="opacity-0" />
-	
+
 	<div class="flex items-start justify-between mb-2">
 		<div class="p-2 bg-gray-50 dark:bg-gray-850 rounded-lg text-gray-600 dark:text-gray-400">
 			<Icon className="size-6" />
 		</div>
-		
-		<div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-			<button 
+
+		<div class="flex space-x-1 opacity-10 group-hover:opacity-100 transition-opacity">
+			<button
+				on:click|stopPropagation={handleAnalyze}
+				class="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-500 hover:text-blue-600 transition-colors rounded-md"
+				title={$i18n.t('Analyze')}
+			>
+				<Sparkles className="size-4" />
+			</button>
+			<button
 				on:click|stopPropagation={handleDownload}
 				class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-gray-500 transition-colors"
 				title={$i18n.t('Download')}
 			>
 				<Download className="size-4" />
 			</button>
-			<button 
+			<button
 				on:click|stopPropagation={handleDelete}
 				class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600 transition-colors rounded-md"
 				title={$i18n.t('Delete')}
